@@ -1,7 +1,7 @@
 Wihlo
 =====
 
-Wihlo was created out of my frustration with the lack of a simple, good quality Linux weather station application for the Davis Vantage Pro2. At the moment it is still very much a work in progress, and as such is not ready for general use. Please keep checking back here for updates, or if you want further information please email andy@andybev.com
+Wihlo was created out of my frustration with the lack of a simple, good quality Linux weather station application for the Davis Vantage Pro2. At the moment Wihlo is still very much a work in progress, and as such is not ready for general use. Please keep checking back here for updates, or if you want further information please email andy@andybev.com. In the meantime, you might be able to see a preview at http://prudhoe.wihlo.org
 
 Features
 --------
