@@ -60,16 +60,33 @@ my $dtf = schema->storage->datetime_parser; # XXXX Is this expensive? Move insid
 my $changing = 0; my $lastdata;
 foreach my $d ( @{$data} ) 
 {
-    # Don't use unixtime parameter, as it depends on
-    # timezone of PC, not datalogger
-    my $dt = DateTime->new(
-        year       => $d->{year},
-        month      => $d->{month},
-        day        => $d->{day},
-        hour       => $d->{hour},
-        minute     => $d->{min},
-        time_zone  => $timezone,
-    );
+    my $dt;
+    # Make up for retarded weather station that produces
+    # invalid times
+    try {
+        # Don't use unixtime parameter, as it depends on
+        # timezone of PC, not datalogger
+        $dt = DateTime->new(
+            year       => $d->{year},
+            month      => $d->{month},
+            day        => $d->{day},
+            hour       => $d->{hour},
+            minute     => $d->{min},
+            time_zone  => $timezone,
+        );
+    } catch {
+        # Possible invalid time, because logger forwards
+        # its clocks one hour too late (for GMT/BST at least).
+        # Attempt again, with time one hour forward.
+        $dt = DateTime->new(
+            year       => $d->{year},
+            month      => $d->{month},
+            day        => $d->{day},
+            hour       => $d->{hour} + 1,
+            minute     => $d->{min},
+            time_zone  => $timezone,
+        );
+    };
 
     # Monitor for a DST "ambiguous" time, when the clocks change.
     # For an hour when the clocks go back, the winter time minus
