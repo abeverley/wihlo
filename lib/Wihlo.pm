@@ -21,8 +21,8 @@ use Dancer2;
 use Dancer2::Plugin::DBIC qw(schema resultset rset);
 use DateTime::Format::Strptime;
 use DateTime::Format::DBI;
+use JSON;
 
-set serializer => 'JSON';
 our $VERSION = '0.1';
 
 get '/' => sub {
@@ -82,7 +82,8 @@ get qr{^/data/?([-\d]*)/?([-\d]*)/?$} => sub {
         push @barom, { x=>$r->datetime->epoch, y=>$r->barometer+0};
         $raintot = 0
             if ($r->datetime->hms('') <= $lasthms);
-        $raintot += $r->rain;
+        my $rain = $r->rain ? $r->rain : 0;
+        $raintot += $rain; # $r->rain;
         push @rain, { x=>$r->datetime->epoch, y=>$raintot};
         $lasthms = $r->datetime->hms('');
     }
@@ -122,7 +123,9 @@ get qr{^/data/?([-\d]*)/?([-\d]*)/?$} => sub {
         ]
     ;
 
-    $data;
+    header "Cache-Control" => "max-age=0, must-revalidate, private";
+    content_type 'application/json';
+    encode_json($data);
 };
 
 sub celsius($)
