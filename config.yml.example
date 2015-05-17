@@ -1,0 +1,47 @@
+# This is the main configuration file of your Dancer2 app
+# env-related settings should go to environments/$env.yml
+# all the settings in this file will be loaded at Dancer's startup.
+
+# Your application's name
+appname: "Wihlo"
+
+# The default layout to use for your application (located in
+# views/layouts/main.tt)
+layout: "main"
+
+# when the charset is set to UTF-8 Dancer2 will handle for you
+# all the magic of encoding and decoding. You should not care
+# about unicode within your app when this setting is set (recommended).
+charset: "UTF-8"
+
+# template engine
+# simple: default and very basic template engine
+# template_toolkit: TT
+
+template: "simple"
+
+# template: "template_toolkit"
+# engines:
+#   template:
+#     template_toolkit:
+#       start_tag: '<%'
+#       end_tag:   '%>'
+
+plugins:
+  DBIC:
+    default:
+      ## Use this for a connection to a local database
+      # dsn: dbi:mysql:database=wihlo;host=localhost
+      ## Use this for an SSL connection to a remote database
+      # dsn: dbi:mysql:database=wihlo;host=dev.simplelists.com;mysql_ssl=1;mysql_ssl_client_key=/etc/mysql/newcerts/client-key.pem;mysql_ssl_client_cert=/etc/mysql/newcerts/client-cert.pem;mysql_ssl_ca_file=/etc/mysql/newcerts/ca-cert.pem;
+      schema_class: Wihlo::Schema
+      user: wihlo
+      pass: password
+      options:
+        RaiseError: 1
+        PrintError: 1
+
+stations:
+  vp:
+    baudrate: 19200
+    device:   /dev/ttyUSB0
