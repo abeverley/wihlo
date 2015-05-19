@@ -82,12 +82,8 @@ get qr{^/data/?([-\d]*)/?([-\d]*)/?$} => sub {
         push @barom, { x=>$r->datetime->epoch, y=>$r->barometer+0};
         $raintot = 0
             if ($r->datetime->hms('') <= $lasthms);
-<<<<<<< HEAD
         my $rain = $r->rain ? $r->rain : 0;
         $raintot += $rain; # $r->rain;
-=======
-        $raintot += $r->rain;
->>>>>>> 590a991c842702ea7715881f47332bd947308e85
         push @rain, { x=>$r->datetime->epoch, y=>$raintot};
         $lasthms = $r->datetime->hms('');
     }
@@ -127,13 +123,9 @@ get qr{^/data/?([-\d]*)/?([-\d]*)/?$} => sub {
         ]
     ;
 
-<<<<<<< HEAD
     header "Cache-Control" => "max-age=0, must-revalidate, private";
     content_type 'application/json';
     encode_json($data);
-=======
-    $data;
->>>>>>> 590a991c842702ea7715881f47332bd947308e85
 };
 
 sub celsius($)
