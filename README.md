@@ -9,6 +9,17 @@ Features
 * Download data from a Vantage Pro2
 * Import data from wview
 
+Installation
+------------
+Installation information will be gradually added here as I write it:
+
+### Create udev rule
+In order to ensure a persistent serial device name, create a udev rule for the device as follows:
+* Connect the VantagePro2 and then use ```dmesg``` to locate the device's idVendor and idProduct.
+* Locate the device's serial number using the command ```udevadm info -a -n /dev/ttyUSB0 | grep '{serial}' | head -n1``` (where ttyUSB0 is the device's name, also available from ```dmesg```)
+* Create a new udev rule by creating a new file in ```/etc/udev/rules.d``` called ```40-vantagepro.rules``` with the following contents (replacing the values as appropriate):
+    SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea61", ATTRS{serial}=="1385229518", SYMLINK+="vantagepro2"
+
 Dataloggers
 -----------
 This section lists any datalogger-specific notes. At the moment only the VantagePro2 is supported, but there are plans to add the Instromet dataloggers.
