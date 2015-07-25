@@ -27,10 +27,20 @@ use Wihlo;
 use Device::VantagePro;
 use DateTime;
 use DateTime::Format::DBI;
+use HTTP::Request::Common qw(GET);
+use LWP::UserAgent;
+use URI;
+use Ouch;
+use Config::YAML;
+use Try::Tiny;
+
+sub rainin($);
+
+my $config = Config::YAML->new(config => "config.yml");
 
 my %arg_hsh;  
-$arg_hsh{baudrate} = config->{stations}->{vp}->{baudrate};
-$arg_hsh{port} = config->{stations}->{vp}->{device};
+$arg_hsh{baudrate} = $config->{stations}->{vp}->{baudrate};
+$arg_hsh{port} = $config->{stations}->{vp}->{device};
 
 my $vp = new Device::VantagePro(\%arg_hsh);
 error "Failed to wake up device" && exit unless $vp->wake_up() == 1;
@@ -54,7 +64,7 @@ if (my $dt = rset('Station')->find(1)->lastdata) # The last item of data retriev
     $data = $vp->do_dmpaft; 
 }
 
-unless ( @{$data} ) { info "No records retrieved" && exit };
+unless ( @{$data} ) { debug "No records retrieved" };
 
 my $dtf = schema->storage->datetime_parser; # XXXX Is this expensive? Move inside loop?
 my $changing = 0; my $lastdata;
@@ -117,6 +127,7 @@ foreach my $d ( @{$data} )
     # Store time as UTC in database
     $dt->set_time_zone( 'UTC' );
 
+
     my $row = 
     {
         # Return undef in event of dashed value
@@ -148,12 +159,173 @@ foreach my $d ( @{$data} )
         warning "Reading already exists for DTG $row->{datetime}. Not inserting.";
     } else
     {
-        my $id = rset('Reading')->create($row);
-        debug "Inserted record ID ".$id->id;
+        my $dbrecord = rset('Reading')->create($row);
+        debug "Inserted record ID ".$dbrecord->id;
     }
+
     $lastdata = "$d->{date_stamp},$d->{time_stamp}"; # if $d->{unixtime} > $lastunix;
 } 
 
 # Last item of data revieved, so we can start where we left off
-rset('Station')->find(1)->update({ lastdata => $lastdata });
+rset('Station')->find(1)->update({ lastdata => $lastdata })
+    if ( @{$data} );
+
+my $ua = LWP::UserAgent->new;
+# Add to Wunderground
+if ($config->{upload}->{wunderground})
+{
+    my @toupload = rset('Reading')->search({ uploaded_wg => 0 })->all;
+    for my $u (@toupload)
+    {
+        my $dt = $u->datetime; # UTC in DB, in object as floating
+
+        my $data = {
+            dateutc      => $dt->ymd('-') . ' ' . $u->datetime->hms(':'),
+            winddir      => $u->winddir,
+            windspeedmph => $u->windspeed,
+            windgustdir  => $u->windgustdir,
+            windgustmph  => $u->windgust,
+            humidity     => $u->outhumidity,
+            tempf        => $u->outtemp,
+            baromin      => $u->barometer,
+            rainin       => rainin($u->datetime),
+        };
+
+
+        if (upload_wg($data))
+        {
+            $u->update({ uploaded_wg => 1 });
+            debug "Uploaded record $dt successfully to Wunderground";
+        }
+    }
+}
+
+# Add to WOW
+if ($config->{upload}->{wow})
+{
+    my @toupload = rset('Reading')->search({ uploaded_wow => 0 })->all;
+    for my $u (@toupload)
+    {
+        my $dt = $u->datetime; # In UTC in DB. Retrieved as floating
+
+        my $data = {
+            dateutc      => $dt->ymd('-') . ' ' . $u->datetime->hms(':'),
+            winddir      => int $u->winddir,
+            windspeedmph => $u->windspeed,
+            windgustdir  => int $u->windgustdir,
+            windgustmph  => $u->windgust,
+            humidity     => $u->outhumidity,
+            tempf        => $u->outtemp,
+            baromin      => $u->barometer,
+            rainin       => rainin($u->datetime),
+        };
+        say STDERR $data->{dateutc};
+
+        if (upload_wow($data))
+        {
+            $u->update({ uploaded_wow => 1 });
+            debug "Uploaded record $dt successfully to WOW";
+        }
+    }
+}
+
+sub upload_wow
+{
+    my $record = shift;
+
+    # Pick out only the required fields
+    my @fields = qw(dateutc winddir windspeedmph windgustdir windgustmph humidity tempf baromin);
+    my %newdata;
+    @newdata{@fields} = undef;
+    @newdata{ keys %newdata } = @$record{ keys %newdata };
+
+    $newdata{action}                = "updateraw";
+    $newdata{softwaretype}          = "Wihlo";
+    $newdata{siteid}                = $config->{upload}->{wow}->{id};
+    $newdata{siteAuthenticationKey} = $config->{upload}->{wow}->{password};
+
+    my $uri = $config->{upload}->{wow}->{url};
+
+    eval { putdata($uri, \%newdata) };
+    if (hug)
+    {
+        debug "Failed to upload to WOW: ".bleep;
+        return;
+    }
+    return 1;
+}
+
+sub upload_wg
+{
+    my $record = shift;
+
+    # Pick out only the required fields
+    my @fields = qw(dateutc winddir windspeedmph windgustdir windgustmph humidity tempf baromin);
+    my %newdata;
+    @newdata{@fields} = undef;
+    @newdata{ keys %newdata } = @$record{ keys %newdata };
+
+    $newdata{action}   = "updateraw";
+    $newdata{ID}       = $config->{upload}->{wunderground}->{id};
+    $newdata{PASSWORD} = $config->{upload}->{wunderground}->{password};
+
+    my $uri = $config->{upload}->{wunderground}->{url};
+
+    my $content;
+    eval { $content = putdata($uri, \%newdata) };
+    if (hug)
+    {
+        debug "Failed to upload to Wunderground: ".bleep;
+        return;
+    }
+    elsif ($content ne "success")
+    {
+        debug "Failed to upload to Wunderground. Returned: $content";
+        return;
+    }
+    return 1;
+}
+
+sub putdata($$)
+{
+    my ($uri, $data) = @_;
+
+    my $urio = URI->new($uri);
+    $urio->query_form($data);
+
+    my $content;
+    if (my $response = $ua->get($urio))
+    {
+        my $code = $response->code;
+        $content = $response->decoded_content;
+        $content =~ s/\s+$//;
+        unless ($code == 200)
+        {
+            ouch 'failupload', "Failed to upload. Return code: $code, Response: $content";
+        }
+    }
+    else {
+        ouch 'failput', "Failed to upload: ".$response->status_line;
+    }
+    return $content;
+}
+
+sub rainin($)
+{
+    my $end = shift;
+    my $start = $end->clone->subtract( hours => 1 );
+
+    my $rain = rset('Reading')->search(
+        {
+            datetime => {
+                -between => [
+                    $dtf->format_datetime($start),
+                    $dtf->format_datetime($end),
+                ],
+            }
+        },
+    )->get_column('rain')->sum;
+
+    $rain / 25.4;
+}
 

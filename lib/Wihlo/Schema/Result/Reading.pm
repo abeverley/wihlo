@@ -55,7 +55,7 @@ __PACKAGE__->table("reading");
 
 =head2 datetime
 
-  data_type: 'timestamp'
+  data_type: 'datetime'
   datetime_undef_if_invalid: 1
   is_nullable: 1
 
@@ -269,6 +269,18 @@ __PACKAGE__->table("reading");
   data_type: 'integer'
   is_nullable: 1
 
+=head2 uploaded_wg
+
+  data_type: 'smallint'
+  default_value: 0
+  is_nullable: 0
+
+=head2 uploaded_wow
+
+  data_type: 'smallint'
+  default_value: 0
+  is_nullable: 0
+
 =cut
 
 __PACKAGE__->add_columns(
@@ -280,7 +292,7 @@ __PACKAGE__->add_columns(
   { data_type => "smallint", default_value => 1, is_nullable => 0 },
   "datetime",
   {
-    data_type => "timestamp",
+    data_type => "datetime",
     datetime_undef_if_invalid => 1,
     is_nullable => 1,
   },
@@ -356,6 +368,10 @@ __PACKAGE__->add_columns(
   { data_type => "integer", is_nullable => 1 },
   "leafwet2",
   { data_type => "integer", is_nullable => 1 },
+  "uploaded_wg",
+  { data_type => "smallint", default_value => 0, is_nullable => 0 },
+  "uploaded_wow",
+  { data_type => "smallint", default_value => 0, is_nullable => 0 },
 );
 
 =head1 PRIMARY KEY
@@ -385,8 +401,8 @@ __PACKAGE__->set_primary_key("id");
 __PACKAGE__->add_unique_constraint("dateTime", ["datetime"]);
 
 
-# Created by DBIx::Class::Schema::Loader v0.07025 @ 2014-01-01 12:55:09
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:9RIECLH+GwXwVw6qbBCiQw
+# Created by DBIx::Class::Schema::Loader v0.07025 @ 2014-04-14 12:01:19
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:42H+MIylHVJpMqGF1EVwxQ
 
 
 # You can replace this text with custom code or comments, and it will be preserved on regeneration
