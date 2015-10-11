@@ -49,6 +49,7 @@ any '/' => sub {
 
     template 'index' => {
         readings => $data->readings,
+        totals   => $data->totals,
         range    => $range,
     };
 };

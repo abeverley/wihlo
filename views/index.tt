@@ -22,14 +22,26 @@
 <div class="row top-buffer">
     <div class="col-md-12">
         <table class="table">
-            <tr>
-                <th>Date</th>
-                <th>Temp max</th>
-                <th>Temp min</th>
-                <th>Wind gust</th>
-                <th>Barometer</th>
-                <th>Rain</th>
-            </tr>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Temp max</th>
+                    <th>Temp min</th>
+                    <th>Wind gust</th>
+                    <th>Barometer</th>
+                    <th>Rain</th>
+                </tr>
+            </thead>
+            <tfoot>
+                <tr>
+                    <th></td>
+                    <th>[% totals.maxtemp %]</td>
+                    <th>[% totals.mintemp %]</td>
+                    <th>[% totals.windgust %]</td>
+                    <th>[% totals.barometer %]</td>
+                    <th>[% totals.raintot %]</td>
+                </tr>
+            </tfoot>
             [% FOREACH reading IN readings %]
                 <tr>
                     <td>[% reading.datetime.ymd %]</td>

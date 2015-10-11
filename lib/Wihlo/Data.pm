@@ -70,6 +70,15 @@ has _sql_group_by => (
     isa => ArrayRef,
 );
 
+has totals => (
+    is      => 'rwp',
+    isa     => HashRef,
+    lazy    => 1,
+    default => sub {
+        die "readings() must be called before totals()";
+    },
+);
+
 sub _build_readings
 {   my $self = shift;
 
@@ -108,24 +117,47 @@ sub _build_readings
     );
 
     my $raintot = 0; my $lasthms = 0;
-    my @readings;
+    my @readings; my %totals;
     while (my $r = $readdisp->next)
     {
         $raintot = 0
             if ($r->datetime->hms('') <= $lasthms);
-        my $rain = $r->rain ? $r->rain : 0;
-        $raintot += $rain;
+        my $rain     = $r->rain ? $r->rain : 0;
+        $raintot    += $rain;
+        my $maxtemp  = celsius($r->get_column('maxtemp'));
+        my $mintemp  = celsius($r->get_column('mintemp'));
+        my $windgust = $r->windgust;
 
         push @readings, {
             datetime  => $r->datetime,
-            maxtemp   => celsius($r->get_column('maxtemp')),
-            mintemp   => celsius($r->get_column('mintemp')),
-            windgust  => $r->windgust || 0,
-            barometer => $r->barometer || 0,
+            maxtemp   => $maxtemp,
+            mintemp   => $mintemp,
+            windgust  => $windgust,
+            barometer => $r->barometer,
             raintot   => $raintot,
         };
+
+        $totals{raintot} += $raintot;
+        $totals{windgust} = $windgust if !defined $totals{windgust} || $totals{windgust} < $windgust;
+
+        if (defined $maxtemp)
+        {
+            $totals{maxtemp_sum} += $maxtemp;
+            $totals{maxtemp_count}++;
+        }
+        if (defined $mintemp)
+        {
+            $totals{mintemp_sum} += $mintemp;
+            $totals{mintemp_count}++;
+        }
+
         $lasthms = $r->datetime->hms('');
     }
+
+    $totals{maxtemp} = sprintf("%.2f", delete($totals{maxtemp_sum}) / delete($totals{maxtemp_count}));
+    $totals{mintemp} = sprintf("%.2f", delete($totals{mintemp_sum}) / delete($totals{mintemp_count}));
+
+    $self->_set_totals(\%totals);
 
     \@readings;
 };
@@ -194,8 +226,8 @@ sub _build__sql_group_by
 }
 
 sub celsius($)
-{
-    my $f = shift;
+{   my $f = shift;
+    defined $f or return;
     my $c = ($f - 32) * (5/9);
     sprintf("%.2f", $c);
 }
