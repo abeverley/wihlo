@@ -19,26 +19,37 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package Wihlo;
 use Dancer2;
 use Dancer2::Plugin::DBIC qw(schema resultset rset);
+use DateTime;
 use DateTime::Format::Strptime;
 use DateTime::Format::DBI;
 use JSON;
 
 our $VERSION = '0.1';
 
-get '/' => sub {
-    template 'index';
+any '/' => sub {
+
+    if (param 'update')
+    {
+        my $strp = DateTime::Format::Strptime->new( pattern   => '%F' );
+        session 'range' => {
+            to   => param('to') ? $strp->parse_datetime(param 'to') : undef,
+            from => param('from') ? $strp->parse_datetime(param 'from') : undef,
+        };
+    }
+
+    template 'index' => {
+        range => session('range'),
+    };
 };
 
-get qr{^/data/?([-\d]*)/?([-\d]*)/?$} => sub {
-    my ( $from_param, $to_param ) = splat;
+get '/data' => sub {
+
+    my $range = session('range') || {};
+    my $to    = $range->{to}   || DateTime->now;
+    my $from  = $range->{from} || $to->clone->subtract(days => 5);
 
     my $reading_rs = rset('Reading');
     schema->storage->debug(1);
-
-    # Convert date parameters to DateTime objects
-    my $strp = DateTime::Format::Strptime->new( pattern   => '%F' );
-    my $to   = $strp->parse_datetime($to_param)   || DateTime->now( time_zone => 'floating' );
-    my $from = $strp->parse_datetime($from_param) || $to->clone->subtract( days => 1 );
 
     # Format DateTime objects for the database query
     my $db_parser = DateTime::Format::DBI->new(schema->storage->dbh);
@@ -61,71 +72,122 @@ get qr{^/data/?([-\d]*)/?([-\d]*)/?$} => sub {
         $group = "DATE_FORMAT(datetime, '%Y%j%H%i')";
     }
 
-    my $readdisp = $reading_rs->search({ datetime => {'-between' => [$from_db, $to_db]} }
-                                      ,{ '+select' => [ { max => 'outtemp'  , -as => 'maxtemp'   },
-                                                        { min => 'outtemp'  , -as => 'mintemp'   },
-                                                        { max => 'windgust' , -as => 'windgust'  },
-                                                        { sum => 'rain'     , -as => 'rain'      },
-                                                        { avg => 'barometer', -as => 'baramoter' }
-                                                    ],
-                                         group_by => [ \$group ] }
+    my $readdisp = $reading_rs->search(
+        {
+            datetime => {
+                -between => [
+                    $from_db, $to_db
+                ]
+            }
+        },{
+            '+select' => [
+                {
+                    max => 'outtemp',
+                    -as => 'maxtemp'
+                },{
+                    min => 'outtemp',
+                    -as => 'mintemp',
+                },{
+                    max => 'windgust',
+                    -as => 'windgust',
+                },{
+                    sum => 'rain',
+                    -as => 'rain',
+                },{
+                    avg => 'barometer',
+                    -as => 'baramoter',
+                }
+            ],
+            group_by => [
+                \$group,
+            ]
+        }
     );
 
-    my @max; my @min; my @wind; my @rain; my @barom;
     my $count = $readdisp->count;
     my $raintot = 0; my $lasthms = 0;
+    my @data;
     while (my $r = $readdisp->next)
     {
-        push @max,   { x=>$r->datetime->epoch, y=>celsius($r->get_column('maxtemp'))};
-        push @min,   { x=>$r->datetime->epoch, y=>celsius($r->get_column('mintemp'))};
-        push @wind,  { x=>$r->datetime->epoch, y=>$r->windgust+0 };
-        push @barom, { x=>$r->datetime->epoch, y=>$r->barometer+0};
+        push @data, {
+            x     => $r->datetime->datetime,
+            y     => celsius($r->get_column('maxtemp')),
+            group => 2,
+        };
+        push @data, {
+            x     => $r->datetime->datetime,
+            y     => celsius($r->get_column('mintemp')),
+            group => 1,
+        };
+        push @data, {
+            x     => $r->datetime->datetime,
+            y     => $r->windgust || 0,
+            group => 3,
+        };
+        push @data, {
+            x     => $r->datetime->datetime,
+            y     => $r->barometer || 0,
+            group => 4,
+        };
         $raintot = 0
             if ($r->datetime->hms('') <= $lasthms);
         my $rain = $r->rain ? $r->rain : 0;
-        $raintot += $rain; # $r->rain;
-        push @rain, { x=>$r->datetime->epoch, y=>$raintot};
+        $raintot += $rain;
+        push @data, {
+            x     => $r->datetime->datetime,
+            y     => $raintot,
+            group => 0,
+        };
         $lasthms = $r->datetime->hms('');
     }
 
-    my $data = 
-        [
+    my $groups = [
         {
-                "color" => "darkblue",
-                "name"=> "Rain (mm)",
-                "data"=> \@rain,
-                "renderer" => "bar",
-        }, 
-        {
-                "color" => "lightblue",
-                "name"=> "Temp min (C)",
-                "data"=> \@min,
-                "renderer" => "line",
-        }, 
-        {
-                "color" => "red",
-                "name"=> "Temp max (C)",
-                "data"=> \@max,
-                "renderer" => "line",
-        }, 
-        {
-                "color" => "forestgreen",
-                "name"=> "Wind gust",
-                "data"=> \@wind,
-                "renderer" => "line",
-        }, 
-        {
-                "color" => "orange",
-                "name"=> "Pressure (in)",
-                "data"=> \@barom,
-                "renderer" => "line",
-        }, 
-        ]
-    ;
+            id      => 0,
+            content => 'Rain (mm)',
+            options => {
+                style => 'bar',
+                drawPoints => \0,
+            }
+        },{
+            id      => 1,
+            content => 'Temp min (C)',
+            options => {
+                drawPoints => {
+                    style => 'circle'
+                },
+            }
+        },{
+            id      => 2,
+            content => 'Temp max (C)',
+            options => {
+                drawPoints => {
+                    style => 'square'
+                },
+            }
+        },{
+            id      => 3,
+            content => 'Wind gust',
+            options => {
+                drawPoints => {
+                    style => 'square'
+                },
+            }
+        },{
+            id      => 4,
+            content => 'Pressure (in)',
+            options => {
+                drawPoints => \0
+            }
+        }
+    ];
 
     header "Cache-Control" => "max-age=0, must-revalidate, private";
     content_type 'application/json';
-    encode_json($data);
+    encode_json({
+        data   => \@data,
+        groups => $groups,
+    });
 };
 
 sub celsius($)

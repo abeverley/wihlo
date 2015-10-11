@@ -1,80 +1,35 @@
 <div>
-    <p>Start: <input type="text" id="start" class="datepicker"></p>
-    <p>End: <input type="text" id="end" class="datepicker"></p>
-    <button id="refresh">Update</button>
+    <form method="post">
+        <p>Start: <input name="from" type="text" class="datepicker" value="[% range.from.ymd %]"></p>
+        <p>End: <input name="to" type="text" class="datepicker" value="[% range.to.ymd %]"></p>
+        <input type="submit" name="update" value="Update">
+    </form>
 </div>
 <br><br>
-<div id="chart_container">
-    <div id="y_axis" class="y_axis" style="clear:both; width: 40px; float:left;"></div>
-    <div id="chart" style="float: left;"></div>
-    <div id="legend_container">
-        <div id="smoother" title="Smoothing"></div>
-        <div id="legend"></div>
-    </div>
-    <div id="slider"></div>
-</div>
+
+<div id="visualization"></div>
+<script type="text/javascript">
+    var container = document.getElementById('visualization');
+
+    function onChange (properties) {
+        alert(Math.round(properties.time.getTime() / 1000));
+    }
+
+    $.getJSON( "/data", function( graph ) {
+        var dataset = new vis.DataSet(graph.data);
+        var groups = new vis.DataSet(graph.groups);
+        var options = {
+            defaultGroup: 'ungrouped',
+            legend: true,
+        };
+        var graph2d = new vis.Graph2d(container, dataset, groups, options);
+        graph2d.on('click', onChange);
+    });
+</script>
 
 <script>
-$('#refresh').on('click',function() {
-    var start = $("#start").val();
-    var end = $("#end").val();
-    graph.dataURL = "/data/" + start + "/" + end;
-    graph.request();
-    return false;
-});
-
-$(function() {
-    $( ".datepicker" ).datepicker({ dateFormat: "yy-mm-dd" });
-});
-
-var init;
-
-var graph = new Rickshaw.Graph.Ajax( {
-
-    element: document.getElementById("chart"),
-    width: 960,
-    height: 500,
-    min: 'auto',
-    renderer: 'multi',
-//    interpolation: 'multi',
-    dataURL: '/data',
-    onData: function(d) { 
-        return d },
-    onComplete: function(transport) {
-        var graph = transport.graph;
-        graph.render();
-        if (!init) {
-            var hoverDetail = new Rickshaw.Graph.HoverDetail( {
-                graph: graph
-            } );
-
-            var y_ticks = new Rickshaw.Graph.Axis.Y( {
-                graph: graph,
-                orientation: 'left',
-                tickFormat: Rickshaw.Fixtures.Number.formatKMBT,
-                element: document.getElementById('y_axis'),
-            } );
-            y_ticks.render();
-
-            var legend = new Rickshaw.Graph.Legend( {
-                graph: graph,
-                element: document.getElementById('legend')
-
-            } );
-
-            var axes = new Rickshaw.Graph.Axis.Time( {
-                graph: graph
-            } );
-            axes.render();
-
-            var shelving = new Rickshaw.Graph.Behavior.Series.Toggle( {
-                graph: graph,
-                legend: legend
-            } );
-            init = 1;
-        };
-    }
-} );
-
+    $(function() {
+        $( ".datepicker" ).datepicker({ dateFormat: "yy-mm-dd" });
+    });
 </script>
 
