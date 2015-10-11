@@ -138,7 +138,7 @@ sub _build_readings
         };
 
         $totals{raintot} += $raintot;
-        $totals{windgust} = $windgust if !defined $totals{windgust} || $totals{windgust} < $windgust;
+        $totals{windgust} = $windgust if !defined $totals{windgust} || ($windgust && $totals{windgust} < $windgust);
 
         if (defined $maxtemp)
         {
