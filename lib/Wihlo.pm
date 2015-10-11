@@ -60,9 +60,9 @@ get '/data' => sub {
 
     my $data = Wihlo::Data->new(
         schema => schema,
-        from   => $range->{from},
-        to     => $range->{to},
     );
+    $data->from($range->{from}) if $range->{from};
+    $data->to($range->{to}) if $range->{to};
 
     my $groups = [
         {
