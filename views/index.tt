@@ -1,9 +1,18 @@
 <div>
-    <form method="post">
-        <p>Start: <input name="from" type="text" class="datepicker" value="[% range.from.ymd %]"></p>
-        <p>End: <input name="to" type="text" class="datepicker" value="[% range.to.ymd %]"></p>
-        <input type="submit" name="update" value="Update">
-    </form>
+    <div class="row">
+        <div class="col-md-6">
+            <form method="post" class="form-inline">
+                <div class="form-group">
+                    <div class="input-group input-daterange">
+                        <input type="text" class="form-control datepicker" name="from" value="[% range.from.ymd %]">
+                        <span class="input-group-addon">to</span>
+                        <input type="text" class="form-control datepicker" name="to" value="[% range.to.ymd %]">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-default" name="update" value="update">Update</button>
+            </form>
+        </div>
+    </div>
 </div>
 <br><br>
 
@@ -25,11 +34,8 @@
         var graph2d = new vis.Graph2d(container, dataset, groups, options);
         graph2d.on('click', onChange);
     });
-</script>
-
-<script>
-    $(function() {
-        $( ".datepicker" ).datepicker({ dateFormat: "yy-mm-dd" });
+    $('.datepicker').datepicker({
+        format: 'yyyy-mm-dd',
+        autoclose: true,
     });
 </script>
-
