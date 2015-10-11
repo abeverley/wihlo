@@ -23,6 +23,7 @@ use DateTime;
 use DateTime::Format::Strptime;
 use DateTime::Format::DBI;
 use JSON;
+use Wihlo::Data;
 
 our $VERSION = '0.1';
 
@@ -37,109 +38,30 @@ any '/' => sub {
         };
     }
 
+    my $range = session('range') || {};
+
+    my $data = Wihlo::Data->new(
+        schema   => schema,
+        from     => $range->{from},
+        to       => $range->{to},
+        group_by => 'day',
+    );
+
     template 'index' => {
-        range => session('range'),
+        readings => $data->readings,
+        range    => $range,
     };
 };
 
 get '/data' => sub {
 
     my $range = session('range') || {};
-    my $to    = $range->{to}   || DateTime->now;
-    my $from  = $range->{from} || $to->clone->subtract(days => 5);
 
-    my $reading_rs = rset('Reading');
-    schema->storage->debug(1);
-
-    # Format DateTime objects for the database query
-    my $db_parser = DateTime::Format::DBI->new(schema->storage->dbh);
-    my $from_db = $db_parser->format_date($from);
-    my $to_db   = $db_parser->format_date($to->add( days => 1));
-
-    # Calculate how many readings to extract from DB and group accordingly
-    my $group = "";
-    my $diff = $from->subtract_datetime( $to );
-    if ($diff->months || $diff->years)
-    {
-        $group = "DATE_FORMAT(datetime, '%Y%j')";
-    }
-    elsif ($diff->weeks)
-    {
-        $group = "DATE_FORMAT(datetime, '%Y%j%H')";
-    }
-    else
-    {
-        $group = "DATE_FORMAT(datetime, '%Y%j%H%i')";
-    }
-
-    my $readdisp = $reading_rs->search(
-        {
-            datetime => {
-                -between => [
-                    $from_db, $to_db
-                ]
-            }
-        },{
-            '+select' => [
-                {
-                    max => 'outtemp',
-                    -as => 'maxtemp'
-                },{
-                    min => 'outtemp',
-                    -as => 'mintemp',
-                },{
-                    max => 'windgust',
-                    -as => 'windgust',
-                },{
-                    sum => 'rain',
-                    -as => 'rain',
-                },{
-                    avg => 'barometer',
-                    -as => 'baramoter',
-                }
-            ],
-            group_by => [
-                \$group,
-            ]
-        }
+    my $data = Wihlo::Data->new(
+        schema => schema,
+        from   => $range->{from},
+        to     => $range->{to},
     );
-
-    my $count = $readdisp->count;
-    my $raintot = 0; my $lasthms = 0;
-    my @data;
-    while (my $r = $readdisp->next)
-    {
-        push @data, {
-            x     => $r->datetime->datetime,
-            y     => celsius($r->get_column('maxtemp')),
-            group => 2,
-        };
-        push @data, {
-            x     => $r->datetime->datetime,
-            y     => celsius($r->get_column('mintemp')),
-            group => 1,
-        };
-        push @data, {
-            x     => $r->datetime->datetime,
-            y     => $r->windgust || 0,
-            group => 3,
-        };
-        push @data, {
-            x     => $r->datetime->datetime,
-            y     => $r->barometer || 0,
-            group => 4,
-        };
-        $raintot = 0
-            if ($r->datetime->hms('') <= $lasthms);
-        my $rain = $r->rain ? $r->rain : 0;
-        $raintot += $rain;
-        push @data, {
-            x     => $r->datetime->datetime,
-            y     => $raintot,
-            group => 0,
-        };
-        $lasthms = $r->datetime->hms('');
-    }
 
     my $groups = [
         {
@@ -185,7 +107,7 @@ get '/data' => sub {
     header "Cache-Control" => "max-age=0, must-revalidate, private";
     content_type 'application/json';
     encode_json({
-        data   => \@data,
+        data   => $data->readings_graph,
         groups => $groups,
     });
 };

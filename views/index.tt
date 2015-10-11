@@ -1,22 +1,49 @@
-<div>
-    <div class="row">
-        <div class="col-md-6">
-            <form method="post" class="form-inline">
-                <div class="form-group">
-                    <div class="input-group input-daterange">
-                        <input type="text" class="form-control datepicker" name="from" value="[% range.from.ymd %]">
-                        <span class="input-group-addon">to</span>
-                        <input type="text" class="form-control datepicker" name="to" value="[% range.to.ymd %]">
-                    </div>
+<div class="row">
+    <div class="col-md-6">
+        <form method="post" class="form-inline">
+            <div class="form-group">
+                <div class="input-group input-daterange">
+                    <input type="text" class="form-control datepicker" name="from" value="[% range.from.ymd %]">
+                    <span class="input-group-addon">to</span>
+                    <input type="text" class="form-control datepicker" name="to" value="[% range.to.ymd %]">
                 </div>
-                <button type="submit" class="btn btn-default" name="update" value="update">Update</button>
-            </form>
-        </div>
+            </div>
+            <button type="submit" class="btn btn-default" name="update" value="update">Update</button>
+        </form>
     </div>
 </div>
-<br><br>
 
-<div id="visualization"></div>
+<div class="row top-buffer">
+    <div class="col-md-12">
+        <div id="visualization"></div>
+    </div>
+</div>
+
+<div class="row top-buffer">
+    <div class="col-md-12">
+        <table class="table">
+            <tr>
+                <th>Date</th>
+                <th>Temp max</th>
+                <th>Temp min</th>
+                <th>Wind gust</th>
+                <th>Barometer</th>
+                <th>Rain</th>
+            </tr>
+            [% FOREACH reading IN readings %]
+                <tr>
+                    <td>[% reading.datetime.ymd %]</td>
+                    <td>[% reading.maxtemp %]</td>
+                    <td>[% reading.mintemp %]</td>
+                    <td>[% reading.windgust %]</td>
+                    <td>[% reading.barometer %]</td>
+                    <td>[% reading.raintot %]</td>
+                </tr>
+            [% END %]
+        </table>
+    </div>
+</div>
+
 <script type="text/javascript">
     var container = document.getElementById('visualization');
 

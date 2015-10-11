@@ -9,8 +9,10 @@ use warnings;
 
 use base 'DBIx::Class::Schema';
 
-__PACKAGE__->load_namespaces;
-
+# XXX Broken the rule. Will need to fix this later.
+Wihlo::Schema->load_namespaces(
+   default_resultset_class => 'ResultSet',
+);
 
 # Created by DBIx::Class::Schema::Loader v0.07025 @ 2013-12-29 21:57:15
 # DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:4l67aG992bcXZcWCzwzoUA
