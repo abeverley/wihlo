@@ -24,6 +24,7 @@ use DateTime::Format::Strptime;
 use DateTime::Format::DBI;
 use JSON;
 use Wihlo::Data;
+use Wihlo::Webcam;
 
 our $VERSION = '0.1';
 
@@ -113,10 +114,13 @@ get '/data' => sub {
     });
 };
 
-sub celsius($)
-{
-    my $f = shift;
-    return ($f - 32) * (5/9);
-}
+get '/webcam/:time' => sub {
+    my $time = param 'time';
+    my $webcam = Wihlo::Webcam->new(
+        schema => schema,
+    );
+    my $image = $webcam->image(time => $time);
+    send_file \$image, content_type => 'image/png';
+};
 
 true;

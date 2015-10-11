@@ -56,11 +56,31 @@
     </div>
 </div>
 
+<!-- Modal -->
+<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h4 class="modal-title" id="myModalLabel">Webcam image</h4>
+            </div>
+            <div class="modal-body">
+                <center><img id="webcam_img"></center>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
 <script type="text/javascript">
     var container = document.getElementById('visualization');
 
     function onChange (properties) {
-        alert(Math.round(properties.time.getTime() / 1000));
+        var t = Math.round(properties.time.getTime() / 1000);
+        $('#webcam_img').attr('src', '/webcam/' + t);
+        $('#myModal').modal();
     }
 
     $.getJSON( "/data", function( graph ) {
