@@ -42,10 +42,10 @@ any '/' => sub {
 
     my $data = Wihlo::Data->new(
         schema   => schema,
-        from     => $range->{from},
-        to       => $range->{to},
         group_by => 'day',
     );
+    $data->from($range->{from}) if $range->{from};
+    $data->to($range->{to}) if $range->{to};
 
     template 'index' => {
         readings => $data->readings,
