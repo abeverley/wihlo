@@ -154,8 +154,10 @@ sub _build_readings
         $lasthms = $r->datetime->hms('');
     }
 
-    $totals{maxtemp} = sprintf("%.2f", delete($totals{maxtemp_sum}) / delete($totals{maxtemp_count}));
-    $totals{mintemp} = sprintf("%.2f", delete($totals{mintemp_sum}) / delete($totals{mintemp_count}));
+    $totals{maxtemp} = sprintf("%.2f", delete($totals{maxtemp_sum}) / delete($totals{maxtemp_count}))
+        if $totals{maxtemp_count};
+    $totals{mintemp} = sprintf("%.2f", delete($totals{mintemp_sum}) / delete($totals{mintemp_count}))
+        if $totals{mintemp_count};
 
     $self->_set_totals(\%totals);
 
