@@ -203,7 +203,7 @@ sub _build_readings_graph
 sub _build_group_by
 {   my $self = shift;
     my $diff = $self->from->subtract_datetime( $self->to );
-    my $group = !$diff->months && !$diff->years && !$diff->weeks
+    my $group = !$diff->months && !$diff->years && !$diff->weeks && $diff->days < 2
               ? 'minute'
               : !$diff->months && !$diff->years
               ? 'hour'
