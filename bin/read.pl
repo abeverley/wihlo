@@ -31,12 +31,11 @@ use HTTP::Request::Common qw(GET);
 use LWP::UserAgent;
 use URI;
 use Ouch;
-use Config::YAML;
 use Try::Tiny;
 
 sub rainin($);
 
-my $config = Config::YAML->new(config => "config.yml");
+my $config = config;
 
 my %arg_hsh;  
 $arg_hsh{baudrate} = $config->{stations}->{vp}->{baudrate};
