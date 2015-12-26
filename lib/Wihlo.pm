@@ -77,25 +77,19 @@ get '/data' => sub {
             id      => 1,
             content => 'Temp min (C)',
             options => {
-                drawPoints => {
-                    style => 'circle'
-                },
+                drawPoints => \0,
             }
         },{
             id      => 2,
             content => 'Temp max (C)',
             options => {
-                drawPoints => {
-                    style => 'square'
-                },
+                drawPoints => \0,
             }
         },{
             id      => 3,
             content => 'Wind gust',
             options => {
-                drawPoints => {
-                    style => 'square'
-                },
+                drawPoints => \0,
             }
         },{
             id      => 4,

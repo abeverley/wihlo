@@ -89,6 +89,7 @@
         var options = {
             defaultGroup: 'ungrouped',
             legend: true,
+            interpolation: false,
         };
         var graph2d = new vis.Graph2d(container, dataset, groups, options);
         graph2d.on('click', onChange);
