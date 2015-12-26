@@ -23,6 +23,7 @@ use lib "$FindBin::Bin/../lib";
 
 use Dancer2 ':script';
 use Dancer2::Plugin::DBIC qw(schema resultset rset);
+use Log::Report syntax => 'LONG';
 use Wihlo;
 use Device::VantagePro;
 use DateTime;
@@ -30,8 +31,6 @@ use DateTime::Format::DBI;
 use HTTP::Request::Common qw(GET);
 use LWP::UserAgent;
 use URI;
-use Ouch;
-use Try::Tiny;
 
 sub rainin($);
 
@@ -42,7 +41,7 @@ $arg_hsh{baudrate} = $config->{stations}->{vp}->{baudrate};
 $arg_hsh{port} = $config->{stations}->{vp}->{device};
 
 my $vp = new Device::VantagePro(\%arg_hsh);
-error "Failed to wake up device" && exit unless $vp->wake_up() == 1;
+report ERROR => "Failed to wake up device" unless $vp->wake_up() == 1;
 
 my $timezone            = $vp->get_timezone;
 my $arc_period          = $vp->get_archive_period;
@@ -63,7 +62,7 @@ if (my $dt = rset('Station')->find(1)->lastdata) # The last item of data retriev
     $data = $vp->do_dmpaft; 
 }
 
-unless ( @{$data} ) { debug "No records retrieved" };
+unless ( @{$data} ) { report TRACE => "No records retrieved" };
 
 my $dtf = schema->storage->datetime_parser; # XXXX Is this expensive? Move inside loop?
 my $changing = 0; my $lastdata;
@@ -83,7 +82,8 @@ foreach my $d ( @{$data} )
             minute     => $d->{min},
             time_zone  => $timezone,
         );
-    } catch {
+    };
+    if ($@) {
         # Possible invalid time, because logger forwards
         # its clocks one hour too late (for GMT/BST at least).
         # Attempt again, with time one hour forward.
@@ -155,11 +155,11 @@ foreach my $d ( @{$data} )
     };
     if (rset('Reading')->search({ datetime => $dtf->format_datetime($row->{datetime}) })->count)
     {
-        warning "Reading already exists for DTG $row->{datetime}. Not inserting.";
+        report INFO => "Reading already exists for DTG $row->{datetime}. Not inserting.";
     } else
     {
         my $dbrecord = rset('Reading')->create($row);
-        debug "Inserted record ID ".$dbrecord->id;
+        report TRACE => "Inserted record ID ".$dbrecord->id;
     }
 
     $lastdata = "$d->{date_stamp},$d->{time_stamp}"; # if $d->{unixtime} > $lastunix;
@@ -191,11 +191,9 @@ if ($config->{upload}->{wunderground})
         };
 
 
-        if (upload_wg($data))
-        {
-            $u->update({ uploaded_wg => 1 });
-            debug "Uploaded record $dt successfully to Wunderground";
-        }
+        upload_wg($data); # Fatal on error
+        $u->update({ uploaded_wg => 1 });
+        report TRACE => "Uploaded record $dt successfully to Wunderground";
     }
 }
 
@@ -220,11 +218,9 @@ if ($config->{upload}->{wow})
         };
         say STDERR $data->{dateutc};
 
-        if (upload_wow($data))
-        {
-            $u->update({ uploaded_wow => 1 });
-            debug "Uploaded record $dt successfully to WOW";
-        }
+        upload_wow($data); # Fatal on error
+        $u->update({ uploaded_wow => 1 });
+        report TRACE => "Uploaded record $dt successfully to WOW";
     }
 }
 
@@ -245,13 +241,11 @@ sub upload_wow
 
     my $uri = $config->{upload}->{wow}->{url};
 
-    eval { putdata($uri, \%newdata) };
-    if (hug)
+    try { putdata($uri, \%newdata) };
+    if ($@)
     {
-        debug "Failed to upload to WOW: ".bleep;
-        return;
+        report ERROR => "Failed to upload to WOW: $@";
     }
-    return 1;
 }
 
 sub upload_wg
@@ -271,18 +265,15 @@ sub upload_wg
     my $uri = $config->{upload}->{wunderground}->{url};
 
     my $content;
-    eval { $content = putdata($uri, \%newdata) };
-    if (hug)
+    try { $content = putdata($uri, \%newdata) };
+    if ($@)
     {
-        debug "Failed to upload to Wunderground: ".bleep;
-        return;
+        report ERROR => "Failed to upload to Wunderground: $@";
     }
     elsif ($content ne "success")
     {
-        debug "Failed to upload to Wunderground. Returned: $content";
-        return;
+        report ERROR => "Failed to upload to Wunderground. Returned: $content";
     }
-    return 1;
 }
 
 sub putdata($$)
@@ -300,11 +291,11 @@ sub putdata($$)
         $content =~ s/\s+$//;
         unless ($code == 200)
         {
-            ouch 'failupload', "Failed to upload. Return code: $code, Response: $content";
+            report ERROR => __x"Failed to upload. Return code: {code}, Response: {content}", code => $code, content => $content;
         }
     }
     else {
-        ouch 'failput', "Failed to upload: ".$response->status_line;
+        report ERROR => __x"Failed to upload: {status}", status => $response->status_line;
     }
     return $content;
 }
